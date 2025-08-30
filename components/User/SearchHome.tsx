@@ -61,14 +61,14 @@ const SearchHome = () => {
   return (
     <div className="w-full max-w-6xl mx-auto p-4">
       {/* Hero Section */}
-      <div className="text-center mb-8">
+      {/* <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-foreground mb-2">
           Discover Amazing Events
         </h1>
         <p className="text-muted-foreground text-lg">
           Find and book the perfect events happening around you
         </p>
-      </div>
+      </div> */}
 
       {/* Search Bar */}
       <div className="bg-card border rounded-xl shadow-lg p-6">
