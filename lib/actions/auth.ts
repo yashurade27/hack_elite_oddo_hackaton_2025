@@ -28,7 +28,9 @@ export async function signIn(email: string, password: string) {
     // Generate a session ID
     const sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     
-    // Store session in Redis (7 days expiry)
+    console.log('Storing user ID (integer) in Redis:', user.id, 'for session:', sessionId);
+    
+    // Store session in Redis (7 days expiry) - Store the numeric ID as string
     await redis.setex(`session:${sessionId}`, 60 * 60 * 24 * 7, user.id.toString());
 
     console.log('SignIn successful for user:', user.email);
@@ -57,18 +59,27 @@ export async function getCurrentUser(sessionId?: string) {
       return null;
     }
     
-    // Get user ID from Redis session
-    const userId = await redis.get(`session:${sessionId}`);
+    // Get user ID from Redis session (should always be integer as string)
+    const userIdString = await redis.get(`session:${sessionId}`);
+    console.log('Retrieved user ID from Redis:', userIdString);
     
-     if (!userId || typeof userId !== 'string') {
+    if (!userIdString || typeof userIdString !== 'string') {
+      console.log('No user ID found in Redis for session:', sessionId);
       return null;
     }
     
-    const userIdNumber = parseInt(userId);
+    // Convert string to integer
+    const userId = parseInt(userIdString);
+    if (isNaN(userId)) {
+      console.log('Invalid user ID in Redis:', userIdString);
+      return null;
+    }
     
-    // Get user data from database
+    console.log('Looking up user by ID:', userId);
+    
+    // Get user data from database using integer ID
     const user = await prisma.user.findUnique({
-      where: { id: userIdNumber },
+      where: { id: userId },
       select: {
         id: true,
         firstName: true,
@@ -79,6 +90,8 @@ export async function getCurrentUser(sessionId?: string) {
         createdAt: true,
       },
     });
+    
+    console.log('User found in database:', user ? { id: user.id, email: user.email } : null);
     
     if (!user) {
       return null;
@@ -121,6 +134,7 @@ export async function testDatabaseConnection() {
     const users = await prisma.user.findMany({
       select: {
         id: true,
+        uuid: true,
         email: true,
         firstName: true,
         lastName: true,
