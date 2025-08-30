@@ -13,12 +13,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
 // Core User Management
 model User {
   id               Int      @id @default(autoincrement())
-  
   uuid             String   @unique @default(uuid())
   email            String   @unique
   passwordHash     String
@@ -283,6 +280,7 @@ model Ticket {
   @@index([isActive])
   @@index([ticketNumber])
   @@index([barcode])
+  Event Event[]
 }
 
 model Payment {
@@ -582,4 +580,3 @@ enum ReferralStatus {
   COMPLETED
   EXPIRED
 }
-
