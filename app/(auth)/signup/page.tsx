@@ -19,7 +19,8 @@ import {
 export default function RegisterPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     role: "user", // 📌 Added role (default user)
@@ -35,10 +36,15 @@ export default function RegisterPage() {
 
   // Form validation
   const validateForm = () => {
-    if (!formData.name.trim()) {
-      setError("Name is required");
+    if (!formData.firstName.trim()) {
+      setError("First name is required");
       return false;
     }
+    if (!formData.lastName.trim()) {
+      setError("Last name is required");
+      return false;
+    }
+
     if (!formData.email.trim()) {
       setError("Email is required");
       return false;
@@ -81,7 +87,8 @@ export default function RegisterPage() {
 
     try {
       const formDataObj = new FormData();
-      formDataObj.append("name", formData.name);
+      formDataObj.append("firstName", formData.firstName);
+      formDataObj.append("lastName", formData.lastName);
       formDataObj.append("email", formData.email);
       formDataObj.append("phone", formData.phone);
       formDataObj.append("role", formData.role); // 📌 Added role
@@ -126,7 +133,7 @@ export default function RegisterPage() {
       if (verifyResult.success) {
         // Now signup the user
         const signupFormData = new FormData();
-        signupFormData.append("name", formData.name);
+        signupFormData.append("name", `${formData.firstName} ${formData.lastName}`);
         signupFormData.append("email", formData.email);
         signupFormData.append("phone", formData.phone);
         signupFormData.append("role", formData.role); // 📌 Added role
@@ -182,14 +189,28 @@ export default function RegisterPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="firstName">First Name</Label>
                 <Input
-                  id="name"
+                  id="firstName"
                   type="text"
-                  placeholder="Enter your full name"
-                  value={formData.name}
+                  placeholder="John"
+                  value={formData.firstName}
                   onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                    setFormData({ ...formData, firstName: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, lastName: e.target.value })
                   }
                   required
                 />
