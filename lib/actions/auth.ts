@@ -6,11 +6,6 @@ import { redis } from '@/lib/redis';
 
 const prisma = new PrismaClient();
 
-// Login related functions only in this file
-// Registration/signup functions moved to app/actions/signup.ts
-
-
-
 // Sign in user with email and password
 export async function signIn(email: string, password: string) {
   try {
@@ -39,7 +34,6 @@ export async function signIn(email: string, password: string) {
     
     // Store session in Redis (7 days expiry)
     await redis.setex(`session:${sessionId}`, 60 * 60 * 24 * 7, user.id);
-    //await redis.setex(`session:${sessionId}:role`, 60 * 60 * 24 * 7, user.role);
 
     return { 
       success: true, 
@@ -101,7 +95,6 @@ export async function signOut(sessionId?: string) {
   try {
     // Clear the session from Redis
     await redis.del(`session:${sessionId}`);
-//    await redis.del(`session:${sessionId}:role`);
     
     return { success: true, message: 'Successfully signed out' };
   } catch (error) {

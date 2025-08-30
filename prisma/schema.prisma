@@ -13,6 +13,570 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Core User Management
+model User {
+  id               Int      @id @default(autoincrement())
+  uuid             String   @unique @default(uuid())
+  email            String   @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  phone            String?
+  image            String?
+  userType         UserType @default(ATTENDEE)
+  isVerified       Boolean  @default(false)
+  loyaltyPoints    Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  isActive         Boolean  @default(true)
 
-/////
+  // Relations
+  addresses           UserAddress[]
+  organizedEvents     Event[] @relation("EventOrganizer")
+  bookings            Booking[]
+  payments            Payment[]
+  promoCodes          PromotionalCode[] @relation("PromoCreator")
+  promoUsages         PromoUsage[]
+  notifications       Notification[]
+  reviews             EventReview[]
+  socialShares        SocialShare[]
+  loyaltyTransactions LoyaltyTransaction[]
+  referrals           Referral[] @relation("Referrer")
+  referred            Referral[] @relation("Referred")
 
+  // Indexes
+  @@index([email])
+  @@index([userType])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([isVerified])
+}
+
+model UserAddress {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  addressType   AddressType
+  streetAddress String
+  city          String
+  state         String
+  postalCode    String
+  country       String
+  isDefault     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([userId])
+  @@index([city, state])
+  @@index([postalCode])
+}
+
+// Event Management
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  icon        String?
+  colorCode   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  events Event[]
+
+
+  @@index([isActive])
+  @@index([name])
+}
+
+model Event {
+  id               Int         @id @default(autoincrement())
+  uuid             String      @unique @default(uuid())
+  organizerId      Int
+  categoryId       Int
+  title            String
+  description      String      @db.Text
+  shortDescription String?
+  bannerImage      String?
+  venueName        String
+  venueAddress     String      @db.Text
+  latitude         Decimal?    @db.Decimal(10, 8)
+  longitude        Decimal?    @db.Decimal(11, 8)
+  startDatetime    DateTime
+  endDatetime      DateTime
+  timezone         String
+  maxAttendees     Int?
+  minAge           Int?
+  status           EventStatus @default(DRAFT)
+  isFeatured       Boolean     @default(false)
+  isTrending       Boolean     @default(false)
+  refundPolicy     String?     @db.Text
+  termsConditions  String?     @db.Text
+  liveStreamUrl    String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Relations
+  organizer     User  @relation("EventOrganizer", fields: [organizerId], references: [id])
+  category      Category        @relation(fields: [categoryId], references: [id])
+  images        EventImage[]
+  ticketTypes   TicketType[]
+  bookings      Booking[]
+  tickets       Ticket[]
+  promoCodes    PromotionalCode[]
+  analytics     EventAnalytics?
+  reviews       EventReview[]
+  socialShares  SocialShare[]
+  notifications Notification[]
+
+  
+  @@index([organizerId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([startDatetime])
+  @@index([endDatetime])
+  @@index([isFeatured])
+  @@index([isTrending])
+  @@index([createdAt])
+  @@index([latitude, longitude])
+  @@index([venueName])
+  @@index([title])
+  @@index([status, startDatetime])
+  @@index([categoryId, status])
+  @@index([organizerId, status])
+}
+
+model EventImage {
+  id           Int      @id @default(autoincrement())
+  eventId      Int
+  imageUrl     String
+  altText      String?
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([eventId])
+  @@index([eventId, displayOrder])
+}
+
+// Ticketing System
+model TicketType {
+  id                 Int      @id @default(autoincrement())
+  uuid               String   @unique @default(uuid())
+  eventId            Int
+  name               String
+  description        String?  @db.Text
+  price              Decimal  @db.Decimal(10, 2)
+  currency           String   @default("INR")
+  totalQuantity      Int
+  remainingQuantity  Int
+  maxPerUser         Int      @default(10)
+  saleStartDatetime  DateTime
+  saleEndDatetime    DateTime
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  bookingItems BookingItem[]
+  tickets      Ticket[]
+
+  // Indexes
+  @@index([eventId])
+  @@index([isActive])
+  @@index([saleStartDatetime, saleEndDatetime])
+  @@index([price])
+  @@index([remainingQuantity])
+  @@index([eventId, isActive])
+}
+
+// Booking and Payment System
+model Booking {
+  id               Int           @id @default(autoincrement())
+  uuid             String        @unique @default(uuid())
+  userId           Int
+  eventId          Int
+  bookingReference String        @unique
+  totalAmount      Decimal       @db.Decimal(10, 2)
+  discountAmount   Decimal       @default(0) @db.Decimal(10, 2)
+  finalAmount      Decimal       @db.Decimal(10, 2)
+  currency         String        @default("INR")
+  bookingStatus    BookingStatus @default(PENDING)
+  paymentStatus    PaymentStatus @default(PENDING)
+  bookingDate      DateTime      @default(now())
+  cancellationDate DateTime?
+  refundAmount     Decimal       @default(0) @db.Decimal(10, 2)
+  attendeeName     String
+  attendeeEmail    String
+  attendeePhone    String
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  event        Event         @relation(fields: [eventId], references: [id])
+  bookingItems BookingItem[]
+  tickets      Ticket[]
+  payments     Payment[]
+  promoUsage   PromoUsage?
+
+  // Indexes
+  @@index([userId])
+  @@index([eventId])
+  @@index([bookingStatus])
+  @@index([paymentStatus])
+  @@index([bookingDate])
+  @@index([attendeeEmail])
+  @@index([userId, bookingStatus])
+  @@index([eventId, bookingStatus])
+  @@index([bookingDate, bookingStatus])
+}
+
+model BookingItem {
+  id           Int     @id @default(autoincrement())
+  bookingId    Int
+  ticketTypeId Int
+  quantity     Int
+  unitPrice    Decimal @db.Decimal(10, 2)
+  totalPrice   Decimal @db.Decimal(10, 2)
+
+  // Relations
+  booking    Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  ticketType TicketType @relation(fields: [ticketTypeId], references: [id])
+
+  // Indexes
+  @@index([bookingId])
+  @@index([ticketTypeId])
+}
+
+model Ticket {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  bookingId       Int
+  ticketTypeId    Int
+  ticketNumber    String    @unique
+  qrCode          String    @db.Text
+  barcode         String    @unique
+  attendeeName    String
+  attendeeEmail   String
+  attendeePhone   String?
+  isCheckedIn     Boolean   @default(false)
+  checkInDatetime DateTime?
+  checkInLocation String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  booking    Booking    @relation(fields: [bookingId], references: [id])
+  ticketType TicketType @relation(fields: [ticketTypeId], references: [id])
+
+
+  // Indexes
+  @@index([bookingId])
+  @@index([ticketTypeId])
+  @@index([attendeeEmail])
+  @@index([isCheckedIn])
+  @@index([isActive])
+  @@index([ticketNumber])
+  @@index([barcode])
+  Event Event[]
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  uuid            String        @unique @default(uuid())
+  bookingId       Int
+  userId          Int
+  paymentGateway  String
+  transactionId   String?       @unique
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("INR")
+  paymentMethod   String
+  paymentStatus   PaymentStatus @default(PENDING)
+  gatewayResponse Json?
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  // Indexes
+  @@index([bookingId])
+  @@index([userId])
+  @@index([paymentStatus])
+  @@index([paymentGateway])
+  @@index([createdAt])
+  @@index([transactionId])
+  @@index([paymentStatus, createdAt])
+}
+
+// Promotions and Discounts
+model PromotionalCode {
+  id                  Int          @id @default(autoincrement())
+  eventId             Int?
+  code                String       @unique
+  description         String?
+  discountType        DiscountType
+  discountValue       Decimal      @db.Decimal(10, 2)
+  minPurchaseAmount   Decimal      @default(0) @db.Decimal(10, 2)
+  maxDiscountAmount   Decimal?     @db.Decimal(10, 2)
+  usageLimit          Int?
+  usageCount          Int          @default(0)
+  userUsageLimit      Int          @default(1)
+  validFrom           DateTime
+  validUntil          DateTime
+  isActive            Boolean      @default(true)
+  createdBy           Int
+  createdAt           DateTime     @default(now())
+
+  // Relations
+  event       Event?       @relation(fields: [eventId], references: [id])
+  creator     User         @relation("PromoCreator", fields: [createdBy], references: [id])
+  promoUsages PromoUsage[]
+
+  // Indexes
+  @@index([eventId])
+  @@index([code])
+  @@index([isActive])
+  @@index([validFrom, validUntil])
+  @@index([createdBy])
+  @@index([discountType])
+  @@index([isActive, validFrom, validUntil])
+}
+
+model PromoUsage {
+  id        Int      @id @default(autoincrement())
+  promoId   Int
+  userId    Int
+  bookingId Int      @unique
+  usedAt    DateTime @default(now())
+
+  // Relations
+  promo   PromotionalCode @relation(fields: [promoId], references: [id])
+  user    User            @relation(fields: [userId], references: [id])
+  booking Booking         @relation(fields: [bookingId], references: [id])
+
+  // Indexes
+  @@index([promoId])
+  @@index([userId])
+  @@index([usedAt])
+  @@index([promoId, userId])
+}
+
+// Notifications and Communication
+model Notification {
+  id          Int              @id @default(autoincrement())
+  userId      Int
+  eventId     Int?
+  type        NotificationType
+  title       String
+  message     String           @db.Text
+  channel     String // email, sms, push, whatsapp
+  isRead      Boolean          @default(false)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  // Relations    
+  user  User   @relation(fields: [userId], references: [id])
+  event Event? @relation(fields: [eventId], references: [id])
+
+  // Indexes
+  @@index([userId])
+  @@index([eventId])
+  @@index([type])
+  @@index([isRead])
+  @@index([scheduledAt])
+  @@index([sentAt])
+  @@index([channel])
+  @@index([userId, isRead])
+  @@index([userId, type])
+}
+
+// Analytics and Reporting
+model EventAnalytics {
+  id                    Int      @id @default(autoincrement())
+  eventId               Int      @unique
+  totalTicketsSold      Int      @default(0)
+  totalRevenue          Decimal  @default(0) @db.Decimal(12, 2)
+  totalAttendees        Int      @default(0)
+  checkedInCount        Int      @default(0)
+  conversionRate        Decimal? @db.Decimal(5, 4)
+  averageTicketPrice    Decimal? @db.Decimal(10, 2)
+  refundedTickets       Int      @default(0)
+  refundedAmount        Decimal  @default(0) @db.Decimal(12, 2)
+  lastUpdated           DateTime @updatedAt
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([totalTicketsSold])
+  @@index([totalRevenue])
+  @@index([lastUpdated])
+}
+
+// Reviews and Ratings
+model EventReview {
+  id        Int      @id @default(autoincrement())
+  eventId   Int
+  userId    Int
+  rating    Int // 1-5 stars
+  comment   String?  @db.Text
+  isVisible Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  // Indexes
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([rating])
+  @@index([isVisible])
+  @@index([createdAt])
+  @@index([eventId, rating])
+  @@index([eventId, isVisible])
+}
+
+// Social Features
+model SocialShare {
+  id        Int         @id @default(autoincrement())
+  eventId   Int
+  userId    Int
+  platform  SocialMedia
+  shareUrl  String
+  createdAt DateTime    @default(now())
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  // Indexes
+  @@index([eventId])
+  @@index([userId])
+  @@index([platform])
+  @@index([createdAt])
+  @@index([eventId, platform])
+}
+
+// Loyalty and Referral System
+model LoyaltyTransaction {
+  id              Int                     @id @default(autoincrement())
+  userId          Int
+  transactionType LoyaltyTransactionType
+  points          Int
+  description     String
+  referenceId     String? // booking_id, event_id, etc.
+  createdAt       DateTime                @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  // Indexes
+  @@index([userId])
+  @@index([transactionType])
+  @@index([createdAt])
+  @@index([referenceId])
+  @@index([userId, transactionType])
+}
+
+model Referral {
+  id           Int            @id @default(autoincrement())
+  referrerId   Int
+  referredId   Int
+  referralCode String         @unique
+  status       ReferralStatus @default(PENDING)
+  rewardPoints Int?
+  createdAt    DateTime       @default(now())
+  completedAt  DateTime?
+
+  // Relations
+  referrer User @relation("Referrer", fields: [referrerId], references: [id])
+  referred User @relation("Referred", fields: [referredId], references: [id])
+
+  // Indexes
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([status])
+  @@index([referralCode])
+  @@index([createdAt])
+  @@index([completedAt])
+  @@index([referrerId, status])
+}
+
+// Enums
+enum UserType {
+  ATTENDEE
+  ORGANIZER
+}
+
+enum AddressType {
+  HOME
+  WORK
+  BILLING
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+  BUY_X_GET_Y
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMATION
+  PAYMENT_CONFIRMATION
+  EVENT_REMINDER
+  EVENT_CANCELLATION
+  EVENT_UPDATE
+  PROMOTIONAL
+  CHECK_IN_SUCCESS
+}
+
+enum SocialMedia {
+  FACEBOOK
+  TWITTER
+  INSTAGRAM
+  WHATSAPP
+  LINKEDIN
+}
+
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  BONUS
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+}
