@@ -87,12 +87,11 @@ export default function RegisterPage() {
 
     try {
       const formDataObj = new FormData();
-      formDataObj.append("firstName", formData.firstName);
-      formDataObj.append("lastName", formData.lastName);
+      // Combine firstName and lastName into name for the server action
+      formDataObj.append("name", `${formData.firstName} ${formData.lastName}`);
       formDataObj.append("email", formData.email);
-      formDataObj.append("phone", formData.phone);
-      formDataObj.append("role", formData.role); // 📌 Added role
       formDataObj.append("password", formData.password);
+      // Note: Server action doesn't expect phone, role in sendOtp step
 
       const result = await sendOtp(null, formDataObj);
 
@@ -136,7 +135,7 @@ export default function RegisterPage() {
         signupFormData.append("name", `${formData.firstName} ${formData.lastName}`);
         signupFormData.append("email", formData.email);
         signupFormData.append("phone", formData.phone);
-        signupFormData.append("role", formData.role); // 📌 Added role
+        signupFormData.append("role", formData.role); // Include role field
         signupFormData.append("password", formData.password);
         signupFormData.append("otp", formData.otp);
 
@@ -383,7 +382,7 @@ export default function RegisterPage() {
               <div className="text-6xl">🎉</div>
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">
-                  Welcome to Globetrotter!
+                  Welcome to EventHive!
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">
                   Your account has been created successfully as{" "}

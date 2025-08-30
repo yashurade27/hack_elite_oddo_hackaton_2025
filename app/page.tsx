@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from 'next/navigation';
 import CardEvent from "@/components/CardEvent";
 import SearchHome from "@/components/User/SearchHome";
 import {
@@ -9,16 +10,19 @@ import {
 } from "@/components/SampleEventData";
 
 export default function Home() {
+  const router = useRouter();
+
   const handleBookTicket = (eventId: number, ticketTypeId: number) => {
-    console.log(
-      `Booking ticket for event ${eventId}, ticket type ${ticketTypeId}`
-    );
-    // Add your booking logic here
+    console.log(`Booking ticket for event ${eventId}, ticket type ${ticketTypeId}`);
+    // Navigate directly to event details page for booking
+    router.push(`/events/${eventId}`);
+
   };
 
   const handleViewDetails = (eventId: number) => {
     console.log(`Viewing details for event ${eventId}`);
-    // Add your navigation logic here
+    // Navigate to event details page
+    router.push(`/events/${eventId}`);
   };
 
   return (
