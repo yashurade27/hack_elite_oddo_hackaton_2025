@@ -121,15 +121,9 @@ export default function LoginPage() {
             </Button>
 
             <div className="text-center text-sm">
-<<<<<<< HEAD
               Don&apos;t have an account?{' '}
               <Link 
                 href="/signup" 
-=======
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/register"
->>>>>>> 72e8353 (Fixed Signup UI)
                 className="text-blue-500 hover:text-blue-600 font-medium"
               >
                 Sign up
