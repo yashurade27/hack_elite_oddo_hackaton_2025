@@ -48,10 +48,10 @@ export async function sendOtp(prevState: any, formData: FormData) {
     // Send OTP email
     await sendMail({
       to: email,
-      subject: "Your Globetrotter Signup OTP",
+      subject: "Your EventHive Signup OTP",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Welcome to Globetrotter!</h2>
+          <h2>Welcome to EventHive!</h2>
           <p>Hello ${name},</p>
           <p>Your one-time password (OTP) for signup is:</p>
           <h1 style="font-size: 32px; letter-spacing: 5px; background: #f5f5f5; padding: 10px; text-align: center;">${otp}</h1>
@@ -111,7 +111,8 @@ export async function signupUser(prevState: any, formData: FormData) {
   const name = formData.get("name") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const phone = formData.get("phone") as string; // Add this line
+  const phone = formData.get("phone") as string;
+  const role = formData.get("role") as string || "user"; // Default to "user" if not provided
   const otp = formData.get("otp") as string;
 
   if (!name || !email || !password || !phone) {
@@ -138,8 +139,9 @@ export async function signupUser(prevState: any, formData: FormData) {
         firstName,
         lastName,
         email,
-        password: hashedPassword,
+        passwordHash: hashedPassword, // Correct field name
         phone,
+        userType: role === "organizer" ? "ORGANIZER" : "ATTENDEE", // Map to correct enum
       },
     });
 

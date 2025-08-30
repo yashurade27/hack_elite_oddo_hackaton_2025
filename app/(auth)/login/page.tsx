@@ -31,16 +31,21 @@ export default function LoginPage() {
     setIsSubmitting(true);
     setError(null);
 
+    console.log('Login attempt:', { email, passwordLength: password.length });
+
     try {
       const result = await signIn(email, password);
+      
+      console.log('SignIn result:', result);
 
-      if (result.error) {
-        setError(result.error);
+      if ('error' in result) {
+        console.log('SignIn error:', result.error);
+        setError(result.error ?? null);
         return;
       }
 
       // Set the session in both cookie and localStorage for redundancy
-      if (result.sessionId) {
+      if (result.success && result.sessionId) {
         console.log("Setting session:", result.sessionId);
 
         // Set in cookie for standard web usage
@@ -51,9 +56,14 @@ export default function LoginPage() {
         // Also store in localStorage as fallback
         localStorage.setItem("sessionId", result.sessionId);
 
+        console.log("Session set successfully, redirecting to:", callbackUrl);
+
         // Force a page refresh to update the session state
         window.location.href = callbackUrl;
         return;
+      } else {
+        console.log("No sessionId received from signIn");
+        setError("Login failed - no session created");
       }
     } catch (err) {
       console.error("Login error:", err);
