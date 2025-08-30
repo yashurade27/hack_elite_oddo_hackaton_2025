@@ -207,10 +207,10 @@ const Navbar: React.FC<NavbarProps> = () => {
               <Link href="/login">Sign In</Link>
             </Button>
             <Button asChild size="sm" className="hidden sm:flex">
-              <Link href="/register">Sign Up</Link>
+              <Link href="/signup">Sign Up</Link>
             </Button>
             <Button asChild size="sm" className="flex sm:hidden">
-              <Link href="/register">
+              <Link href="/signup">
                 <User size={16} />
               </Link>
             </Button>
