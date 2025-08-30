@@ -1,5 +1,5 @@
 "use client";
-import { Moon, Sun, User, LogOut, Map } from "lucide-react";
+import { Moon, Sun, User, LogOut, Home, PlusCircle, Map } from "lucide-react";
 import React from "react";
 import { SidebarTrigger } from "./ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -103,6 +103,8 @@ const Navbar: React.FC<NavbarProps> = () => {
         )}
       </div>
       <div className="flex items-center gap-3 sm:gap-6">
+
+
         {/* Theme Toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
