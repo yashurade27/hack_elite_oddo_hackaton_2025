@@ -1,0 +1,143 @@
+'use server';
+
+import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import { prisma } from '@/lib/prisma';
+import { redis } from '@/lib/redis';
+import { sendMail } from '@/lib/mail';
+
+// Validate email format
+const emailSchema = z.string().email();
+
+// Generate a random 6-digit OTP
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Send OTP via email and store in Redis with expiration
+export async function sendOtp(prevState: any, formData: FormData) {
+  const email = formData.get('email') as string;
+  const name = formData.get('name') as string;
+  const password = formData.get('password') as string;
+  
+  // Basic validation
+  if (!email || !name || !password) {
+    return { success: false, message: "All fields are required" };
+  }
+  
+  try {
+    // Validate email format
+    emailSchema.parse(email);
+    
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+    
+    if (existingUser) {
+      return { success: false, message: "Email already registered" };
+    }
+    
+    // Generate OTP and set expiration (5 minutes)
+    const otp = generateOTP();
+    const OTP_EXPIRY = 60 * 5; // 5 minutes
+    
+    // Store OTP in Redis with expiration
+    await redis.setex(`signup:otp:${email}`, OTP_EXPIRY, otp);
+    
+    // Send OTP email
+    await sendMail({
+      to: email,
+      subject: 'Your Globetrotter Signup OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Welcome to Globetrotter!</h2>
+          <p>Hello ${name},</p>
+          <p>Your one-time password (OTP) for signup is:</p>
+          <h1 style="font-size: 32px; letter-spacing: 5px; background: #f5f5f5; padding: 10px; text-align: center;">${otp}</h1>
+          <p>This code will expire in 5 minutes.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+        </div>
+      `,
+    });
+    
+    return { success: true, message: "OTP sent to your email" };
+  } catch (error) {
+    console.error('OTP generation error:', error);
+    return { success: false, message: error instanceof z.ZodError ? "Invalid email format" : "Failed to send OTP" };
+  }
+}
+
+// Verify OTP from Redis
+export async function verifyOtp(prevState: any, formData: FormData) {
+  const email = formData.get('email') as string;
+  const userOtp = formData.get('otp') as string;
+  
+  if (!email || !userOtp) {
+    return { success: false, message: "Email and OTP required" };
+  }
+  
+  try {
+    // Get stored OTP from Redis
+    const storedOtp = await redis.get(`signup:otp:${email}`);
+    
+    if (!storedOtp) {
+      return { success: false, message: "OTP expired or invalid" };
+    }
+    
+    // Verify OTP
+    if (storedOtp !== userOtp) {
+      return { success: false, message: "Invalid OTP" };
+    }
+    
+    // Store verification status in Redis for 10 minutes
+    await redis.setex(`signup:verified:${email}`, 60 * 10, "true");
+    
+    return { success: true, message: "OTP verified successfully" };
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    return { success: false, message: "Failed to verify OTP" };
+  }
+}
+
+// Complete user signup after OTP verification
+export async function signupUser(prevState: any, formData: FormData) {
+  const name = formData.get('name') as string;
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const otp = formData.get('otp') as string;
+  
+  if (!name || !email || !password) {
+    return { success: false, message: "All fields are required" };
+  }
+  
+  try {
+    // Check if the email was verified
+    const verified = await redis.get(`signup:verified:${email}`);
+    
+    if (!verified) {
+      return { success: false, message: "Email verification required" };
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create user in database
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+      },
+    });
+    
+    // Clean up Redis keys
+    await redis.del(`signup:otp:${email}`);
+    await redis.del(`signup:verified:${email}`);
+    
+    return { success: true, message: "Account created successfully" };
+  } catch (error) {
+    console.error('User creation error:', error);
+    return { success: false, message: "Failed to create account" };
+  }
+}
