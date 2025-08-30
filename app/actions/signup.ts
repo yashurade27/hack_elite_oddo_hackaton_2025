@@ -48,16 +48,31 @@ export async function sendOtp(prevState: any, formData: FormData) {
     // Send OTP email
     await sendMail({
       to: email,
-      subject: 'Your Globetrotter Signup OTP',
+      subject: 'Your EventHive Signup OTP',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Welcome to Globetrotter!</h2>
-          <p>Hello ${name},</p>
-          <p>Your one-time password (OTP) for signup is:</p>
-          <h1 style="font-size: 32px; letter-spacing: 5px; background: #f5f5f5; padding: 10px; text-align: center;">${otp}</h1>
-          <p>This code will expire in 5 minutes.</p>
-          <p>If you didn't request this, please ignore this email.</p>
-        </div>
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; border-radius: 12px; box-shadow: 0px 4px 12px rgba(0,0,0,0.1); border: 1px solid #eaeaea;">
+            
+            <div style="text-align: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 20px;">
+                <h2 style="color: #4a90e2; margin: 0; font-size: 26px;">🎉 Welcome to <span style="color:#ff7b54;">EventHive</span>!</h2>
+            </div>
+
+            <p style="font-size: 16px; color: #333;">Hello <b>${name}</b>,</p>
+
+            <p style="font-size: 15px; color: #555;">We’re excited to have you onboard! Your one-time password (OTP) for signup is:</p>
+
+            <div style="background: #f4f8ff; border: 1px dashed #4a90e2; border-radius: 8px; padding: 15px; margin: 20px 0; text-align: center;">
+                <h1 style="font-size: 36px; letter-spacing: 8px; color: #4a90e2; margin: 0;">${otp}</h1>
+            </div>
+
+            <p style="font-size: 14px; color: #777;">⚠️ This OTP will expire in <b>5 minutes</b>.</p>
+
+            <p style="font-size: 14px; color: #777;">If you didn’t request this code, you can safely ignore this email.</p>
+
+            <div style="text-align: center; margin-top: 30px; font-size: 13px; color: #aaa;">
+                <p>— The EventHive Team</p>
+            </div>
+
+            </div>
       `,
     });
     
