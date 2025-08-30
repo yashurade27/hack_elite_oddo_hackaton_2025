@@ -1,11 +1,11 @@
 "use client";
 import { usePathname } from 'next/navigation';
 import { AppSidebar } from '@/components/AppSidebar';
-import AppSideBarAdmin from './Admin/AppSideBarAdmin';
+import AppSideBarOrganzier from './Organizer/AppSideBarOrganizer';
 
 export default function SidebarWrapper() {
   const pathname = usePathname();
-  const isAdminRoute = pathname.startsWith('/dashboard');
+  const isOrganizerRoute = pathname.startsWith('/organizer');
 
-  return isAdminRoute ? <AppSideBarAdmin /> : <AppSidebar />;
+  return isOrganizerRoute ? <AppSideBarOrganzier /> : <AppSidebar />;
 }

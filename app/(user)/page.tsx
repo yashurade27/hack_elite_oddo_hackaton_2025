@@ -1,6 +1,6 @@
 import React from 'react'
 
-const AppSideBarAdmin = () => {
+const UserHome = () => {
   return (
     <div>
       
@@ -8,4 +8,4 @@ const AppSideBarAdmin = () => {
   )
 }
 
-export default AppSideBarAdmin
+export default UserHome
