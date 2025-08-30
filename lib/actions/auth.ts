@@ -1,14 +1,14 @@
 "use server";
 
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma"; // Use shared Prisma instance
 import bcrypt from "bcryptjs";
 import { redis } from '@/lib/redis';
-
-const prisma = new PrismaClient();
 
 // Sign in user with email and password
 export async function signIn(email: string, password: string) {
   try {
+    console.log('SignIn attempt for email:', email);
+    
     // Find user
     const user = await prisma.user.findUnique({
       where: { email },
@@ -18,12 +18,8 @@ export async function signIn(email: string, password: string) {
       return { error: 'Invalid email or password' };
     }
 
-    if(user.isBanned){
-      return { error: 'Your account has been banned. Please contact support.' };
-    }
-
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
       return { error: 'Invalid email or password' };
@@ -33,16 +29,18 @@ export async function signIn(email: string, password: string) {
     const sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     
     // Store session in Redis (7 days expiry)
-    await redis.setex(`session:${sessionId}`, 60 * 60 * 24 * 7, user.id);
+    await redis.setex(`session:${sessionId}`, 60 * 60 * 24 * 7, user.id.toString());
 
+    console.log('SignIn successful for user:', user.email);
+    
     return { 
       success: true, 
       sessionId, 
       user: { 
         id: user.id, 
-        name: user.name, 
+        name: `${user.firstName} ${user.lastName}`, 
         email: user.email, 
-        role: user.role, 
+        role: user.userType, 
       } 
     };
   } catch (error) {
@@ -56,31 +54,42 @@ export async function getCurrentUser(sessionId?: string) {
   try {
     // If sessionId is not passed, we can't get the user
     if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
-      console.log('getCurrentUser: No valid sessionId provided');
       return null;
     }
+    
     // Get user ID from Redis session
     const userId = await redis.get(`session:${sessionId}`);
     
      if (!userId || typeof userId !== 'string') {
-      console.log('getCurrentUser: No valid userId found in Redis');
       return null;
     }
     
+    const userIdNumber = parseInt(userId);
+    
     // Get user data from database
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: userIdNumber },
       select: {
         id: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         email: true,
         image: true,
-        role: true,
+        userType: true,
         createdAt: true,
       },
     });
     
-    return user;
+    if (!user) {
+      return null;
+    }
+    
+    // Return user with computed name field
+    return {
+      ...user,
+      name: `${user.firstName} ${user.lastName}`,
+      role: user.userType,
+    };
   } catch (error) {
     console.error('Get current user error:', error);
     return null;
@@ -100,6 +109,31 @@ export async function signOut(sessionId?: string) {
   } catch (error) {
     console.error('Signout error:', error);
     return { success: false, message: 'Failed to sign out' };
+  }
+}
+
+// Test function to verify database connection
+export async function testDatabaseConnection() {
+  try {
+    const userCount = await prisma.user.count();
+    console.log('Database connection successful. User count:', userCount);
+    
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        userType: true,
+      },
+      take: 5,
+    });
+    
+    console.log('Sample users:', users);
+    return { success: true, userCount, users };
+  } catch (error) {
+    console.error('Database connection test failed:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
