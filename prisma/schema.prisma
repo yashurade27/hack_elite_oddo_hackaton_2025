@@ -15,34 +15,34 @@ datasource db {
 
 // Core User Management
 model User {
-  id               Int      @id @default(autoincrement())
-  uuid             String   @unique @default(uuid())
-  email            String   @unique
-  passwordHash     String
-  firstName        String
-  lastName         String
-  phone            String?
-  image            String?
-  userType         UserType @default(ATTENDEE)
-  isVerified       Boolean  @default(false)
-  loyaltyPoints    Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  isActive         Boolean  @default(true)
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  phone         String?
+  image         String?
+  userType      UserType @default(ATTENDEE)
+  isVerified    Boolean  @default(false)
+  loyaltyPoints Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isActive      Boolean  @default(true)
 
   // Relations
   addresses           UserAddress[]
-  organizedEvents     Event[] @relation("EventOrganizer")
+  organizedEvents     Event[]              @relation("EventOrganizer")
   bookings            Booking[]
   payments            Payment[]
-  promoCodes          PromotionalCode[] @relation("PromoCreator")
+  promoCodes          PromotionalCode[]    @relation("PromoCreator")
   promoUsages         PromoUsage[]
   notifications       Notification[]
   reviews             EventReview[]
   socialShares        SocialShare[]
   loyaltyTransactions LoyaltyTransaction[]
-  referrals           Referral[] @relation("Referrer")
-  referred            Referral[] @relation("Referred")
+  referrals           Referral[]           @relation("Referrer")
+  referred            Referral[]           @relation("Referred")
 
   // Indexes
   @@index([email])
@@ -84,7 +84,6 @@ model Category {
 
   events Event[]
 
-
   @@index([isActive])
   @@index([name])
 }
@@ -97,14 +96,14 @@ model Event {
   title            String
   description      String      @db.Text
   shortDescription String?
-  bannerImage      String?
+  bannerImage      String?     // URL to Cloudinary image
   venueName        String
   venueAddress     String      @db.Text
   latitude         Decimal?    @db.Decimal(10, 8)
   longitude        Decimal?    @db.Decimal(11, 8)
   startDatetime    DateTime
   endDatetime      DateTime
-  timezone         String
+  timezone         String      @default("Asia/Kolkata")
   maxAttendees     Int?
   minAge           Int?
   status           EventStatus @default(DRAFT)
@@ -117,8 +116,8 @@ model Event {
   updatedAt        DateTime    @updatedAt
 
   // Relations
-  organizer     User  @relation("EventOrganizer", fields: [organizerId], references: [id])
-  category      Category        @relation(fields: [categoryId], references: [id])
+  organizer     User              @relation("EventOrganizer", fields: [organizerId], references: [id])
+  category      Category          @relation(fields: [categoryId], references: [id])
   images        EventImage[]
   ticketTypes   TicketType[]
   bookings      Booking[]
@@ -129,7 +128,7 @@ model Event {
   socialShares  SocialShare[]
   notifications Notification[]
 
-  
+  @@index([uuid])
   @@index([organizerId])
   @@index([categoryId])
   @@index([status])
@@ -163,21 +162,21 @@ model EventImage {
 
 // Ticketing System
 model TicketType {
-  id                 Int      @id @default(autoincrement())
-  uuid               String   @unique @default(uuid())
-  eventId            Int
-  name               String
-  description        String?  @db.Text
-  price              Decimal  @db.Decimal(10, 2)
-  currency           String   @default("INR")
-  totalQuantity      Int
-  remainingQuantity  Int
-  maxPerUser         Int      @default(10)
-  saleStartDatetime  DateTime
-  saleEndDatetime    DateTime
-  isActive           Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  uuid              String   @unique @default(uuid())
+  eventId           Int
+  name              String
+  description       String?  @db.Text
+  price             Decimal  @db.Decimal(10, 2)
+  currency          String   @default("INR")
+  totalQuantity     Int
+  remainingQuantity Int
+  maxPerUser        Int      @default(10)
+  saleStartDatetime DateTime
+  saleEndDatetime   DateTime
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Relations
   event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -270,7 +269,7 @@ model Ticket {
   // Relations
   booking    Booking    @relation(fields: [bookingId], references: [id])
   ticketType TicketType @relation(fields: [ticketTypeId], references: [id])
-
+  Event      Event[]
 
   // Indexes
   @@index([bookingId])
@@ -280,7 +279,6 @@ model Ticket {
   @@index([isActive])
   @@index([ticketNumber])
   @@index([barcode])
-  Event Event[]
 }
 
 model Payment {
@@ -314,22 +312,22 @@ model Payment {
 
 // Promotions and Discounts
 model PromotionalCode {
-  id                  Int          @id @default(autoincrement())
-  eventId             Int?
-  code                String       @unique
-  description         String?
-  discountType        DiscountType
-  discountValue       Decimal      @db.Decimal(10, 2)
-  minPurchaseAmount   Decimal      @default(0) @db.Decimal(10, 2)
-  maxDiscountAmount   Decimal?     @db.Decimal(10, 2)
-  usageLimit          Int?
-  usageCount          Int          @default(0)
-  userUsageLimit      Int          @default(1)
-  validFrom           DateTime
-  validUntil          DateTime
-  isActive            Boolean      @default(true)
-  createdBy           Int
-  createdAt           DateTime     @default(now())
+  id                Int          @id @default(autoincrement())
+  eventId           Int?
+  code              String       @unique
+  description       String?
+  discountType      DiscountType
+  discountValue     Decimal      @db.Decimal(10, 2)
+  minPurchaseAmount Decimal      @default(0) @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?     @db.Decimal(10, 2)
+  usageLimit        Int?
+  usageCount        Int          @default(0)
+  userUsageLimit    Int          @default(1)
+  validFrom         DateTime
+  validUntil        DateTime
+  isActive          Boolean      @default(true)
+  createdBy         Int
+  createdAt         DateTime     @default(now())
 
   // Relations
   event       Event?       @relation(fields: [eventId], references: [id])
@@ -397,17 +395,17 @@ model Notification {
 
 // Analytics and Reporting
 model EventAnalytics {
-  id                    Int      @id @default(autoincrement())
-  eventId               Int      @unique
-  totalTicketsSold      Int      @default(0)
-  totalRevenue          Decimal  @default(0) @db.Decimal(12, 2)
-  totalAttendees        Int      @default(0)
-  checkedInCount        Int      @default(0)
-  conversionRate        Decimal? @db.Decimal(5, 4)
-  averageTicketPrice    Decimal? @db.Decimal(10, 2)
-  refundedTickets       Int      @default(0)
-  refundedAmount        Decimal  @default(0) @db.Decimal(12, 2)
-  lastUpdated           DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  eventId            Int      @unique
+  totalTicketsSold   Int      @default(0)
+  totalRevenue       Decimal  @default(0) @db.Decimal(12, 2)
+  totalAttendees     Int      @default(0)
+  checkedInCount     Int      @default(0)
+  conversionRate     Decimal? @db.Decimal(5, 4)
+  averageTicketPrice Decimal? @db.Decimal(10, 2)
+  refundedTickets    Int      @default(0)
+  refundedAmount     Decimal  @default(0) @db.Decimal(12, 2)
+  lastUpdated        DateTime @updatedAt
 
   // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -467,13 +465,13 @@ model SocialShare {
 
 // Loyalty and Referral System
 model LoyaltyTransaction {
-  id              Int                     @id @default(autoincrement())
+  id              Int                    @id @default(autoincrement())
   userId          Int
   transactionType LoyaltyTransactionType
   points          Int
   description     String
   referenceId     String? // booking_id, event_id, etc.
-  createdAt       DateTime                @default(now())
+  createdAt       DateTime               @default(now())
 
   // Relations
   user User @relation(fields: [userId], references: [id])

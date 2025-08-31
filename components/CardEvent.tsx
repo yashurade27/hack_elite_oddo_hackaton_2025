@@ -8,32 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 
-// Types based on your Prisma schema
-interface TicketType {
-  id: number;
-  uuid: string;
-  name: string;
-  description?: string;
-  price: number;
-  currency: string;
-  totalQuantity: number;
-  remainingQuantity: number;
-  maxPerUser: number;
-  saleStartDatetime: Date;
-  saleEndDatetime: Date;
-  isActive: boolean;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  description?: string;
-  icon?: string;
-  colorCode?: string;
-}
-
+// Simplified interface to match dynamic homepage data
 interface EventData {
-  id: number;
+  id: string; // UUID as string for navigation
   uuid: string;
   title: string;
   description: string;
@@ -41,22 +18,48 @@ interface EventData {
   bannerImage?: string;
   venueName: string;
   venueAddress: string;
-  startDatetime: Date;
-  endDatetime: Date;
+  startDatetime: string | Date;
+  endDatetime: string | Date;
   timezone: string;
   maxAttendees?: number | null;
   minAge?: number | null;
-  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
+  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | 'past' | 'sold-out' | 'available';
   isFeatured: boolean;
   isTrending: boolean;
-  category: Category;
-  ticketTypes?: TicketType[];
+  category: {
+    id: number;
+    name: string;
+    icon?: string;
+    colorCode?: string;
+  };
+  ticketTypes?: {
+    id: number;
+    name: string;
+    price: number;
+    currency: string;
+    remainingQuantity: number;
+    isActive: boolean;
+  }[];
+  // Additional dynamic properties from HomePage
+  date?: string;
+  time?: string;
+  location?: string;
+  price?: number;
+  currency?: string;
+  formattedPrice?: string;
+  attendees?: number;
+  totalReviews?: number;
+  organizer?: string;
+  organizerName?: string;
+  image?: string;
+  categoryColor?: string;
+  availableTickets?: number;
 }
 
 interface CardEventProps {
   event: EventData;
-  onBookTicket?: (eventId: number, ticketTypeId: number) => void;
-  onViewDetails?: (eventId: number) => void;
+  onBookTicket?: (eventId: string) => void; // Changed to string for UUID
+  onViewDetails?: (eventId: string) => void; // Changed to string for UUID
   className?: string;
 }
 
@@ -88,20 +91,30 @@ export default function CardEvent({
     return new Intl.NumberFormat('en-US').format(num);
   };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }).format(date);
+  const formatDate = (date: string | Date) => {
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      return new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }).format(dateObj);
+    } catch {
+      return 'Invalid Date';
+    }
   };
 
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date);
+  const formatTime = (date: string | Date) => {
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      return new Intl.DateTimeFormat('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).format(dateObj);
+    } catch {
+      return 'Invalid Time';
+    }
   };
 
   const formatPrice = (price: number, currency: string) => {
@@ -138,18 +151,18 @@ export default function CardEvent({
     return colors[categoryName] || 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/50 dark:text-gray-200 dark:border-gray-700';
   };
 
-  const isEventSoldOut = getAvailableTickets() === 0;
-  const isEventUpcoming = new Date(event.startDatetime) > new Date();
-  const lowestPrice = getLowestPrice();
+  const isEventSoldOut = event.status === 'sold-out' || getAvailableTickets() === 0;
+  const isEventUpcoming = event.status !== 'past' && (typeof event.startDatetime === 'string' ? new Date(event.startDatetime) : event.startDatetime) > new Date();
+  const lowestPrice = event.formattedPrice ? event.price : getLowestPrice();
 
   return (
     <Card className={`group hover:shadow-xl transition-all duration-300 overflow-hidden w-full min-w-[380px] max-w-[420px] mx-auto ${className}`}>
       <CardHeader className="p-0 relative">
         {/* Event Image */}
         <div className="relative h-64 w-full overflow-hidden">
-          {event.bannerImage ? (
+          {(event.image || event.bannerImage) ? (
             <Image
-              src={event.bannerImage}
+              src={event.image || event.bannerImage || ''}
               alt={event.title}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -187,12 +200,12 @@ export default function CardEvent({
           </div>
 
           {/* Price Tag */}
-          {lowestPrice !== null && (
+          {(event.formattedPrice || lowestPrice !== null) && (
             <div className="absolute bottom-3 right-3 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg px-3 py-1 shadow-sm border border-white/20 dark:border-gray-700/50">
               <div className="flex items-center gap-1">
                 <IndianRupee className="w-4 h-4 text-primary" />
                 <span className="font-semibold text-primary">
-                  {lowestPrice === 0 ? 'Free' : `${formatNumber(lowestPrice)}+`}
+                  {event.formattedPrice || (lowestPrice === 0 ? 'Free' : lowestPrice ? `${formatNumber(lowestPrice)}+` : 'Free')}
                 </span>
               </div>
             </div>
@@ -216,15 +229,15 @@ export default function CardEvent({
           {/* Date and Time */}
           <div className="flex items-center gap-3 text-base">
             <Calendar className="w-5 h-5 text-primary flex-shrink-0" />
-            <span>{formatDate(new Date(event.startDatetime))}</span>
+            <span>{event.date || formatDate(event.startDatetime)}</span>
             <Clock className="w-5 h-5 text-primary ml-3 flex-shrink-0" />
-            <span>{formatTime(new Date(event.startDatetime))}</span>
+            <span>{event.time || formatTime(event.startDatetime)}</span>
           </div>
 
           {/* Location */}
           <div className="flex items-center gap-3 text-base">
             <MapPin className="w-5 h-5 text-primary flex-shrink-0" />
-            <span className="line-clamp-1">{event.venueName}</span>
+            <span className="line-clamp-1">{event.location || event.venueName}</span>
           </div>
 
           {/* Capacity */}
@@ -233,7 +246,7 @@ export default function CardEvent({
               <Users className="w-5 h-5 text-primary flex-shrink-0" />
               <span>Max {formatNumber(event.maxAttendees)} attendees</span>
               <span className="text-muted-foreground">
-                • {getAvailableTickets()} tickets left
+                • {event.availableTickets || getAvailableTickets()} tickets left
               </span>
             </div>
           )}
@@ -297,26 +310,19 @@ export default function CardEvent({
         <Button
           variant="outline"
           className="flex-1 h-12 text-base font-medium"
-          onClick={() => onViewDetails?.(event.id)}
+          onClick={() => onViewDetails?.(event.uuid)}
         >
           View Details
         </Button>
         
         <Button
           className="flex-1 h-12 text-base font-medium"
-          disabled={isEventSoldOut || !isEventUpcoming || event.status !== 'PUBLISHED'}
-          onClick={() => {
-            const firstAvailableTicket = safeTicketTypes.find(ticket => 
-              ticket.isActive && ticket.remainingQuantity > 0
-            );
-            if (firstAvailableTicket) {
-              onBookTicket?.(event.id, firstAvailableTicket.id);
-            }
-          }}
+          disabled={isEventSoldOut || !isEventUpcoming || (event.status !== 'PUBLISHED' && event.status !== 'available')}
+          onClick={() => onBookTicket?.(event.uuid)}
         >
           {isEventSoldOut ? 'Sold Out' : 
-           !isEventUpcoming ? 'Event Ended' : 
-           event.status !== 'PUBLISHED' ? 'Not Available' : 
+           !isEventUpcoming || event.status === 'past' ? 'Event Ended' : 
+           (event.status !== 'PUBLISHED' && event.status !== 'available') ? 'Not Available' : 
            'Book Now'}
         </Button>
       </CardFooter>

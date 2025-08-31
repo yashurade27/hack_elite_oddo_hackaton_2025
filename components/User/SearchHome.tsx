@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Calendar, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,12 +17,22 @@ import {
 } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 
-const SearchHome = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+interface SearchHomeProps {
+  onSearch: (query: string) => void;
+  initialValue?: string;
+}
+
+const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) => {
+  const [searchQuery, setSearchQuery] = useState(initialValue);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [selectedLocation, setSelectedLocation] = useState<string | undefined>(undefined);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [isDateOpen, setIsDateOpen] = useState(false);
+
+  // Call onSearch when searchQuery changes (real-time search)
+  useEffect(() => {
+    onSearch(searchQuery);
+  }, [searchQuery, onSearch]);
 
   const categories = [
     { value: 'music', label: 'Music' },
@@ -41,6 +51,9 @@ const SearchHome = () => {
   ];
 
   const handleSearch = () => {
+    // Call the parent's onSearch function with the current search query
+    onSearch(searchQuery);
+    
     console.log({
       query: searchQuery,
       category: selectedCategory,
@@ -82,7 +95,11 @@ const SearchHome = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-12 text-base"
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
             />
           </div>
 
@@ -163,7 +180,11 @@ const SearchHome = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-12 text-base"
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
             />
           </div>
 

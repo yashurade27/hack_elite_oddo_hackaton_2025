@@ -135,7 +135,7 @@ const accountItems = [
 ]
 
 export function AppSidebar() {
-  const { user } = useSession();
+  const { user, signOut } = useSession();
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
 
   return (
@@ -225,6 +225,17 @@ export function AppSidebar() {
             <SidebarGroupLabel>My Events</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                {/* Show Organizer Dashboard link if user is an organizer */}
+                {user.role === 'ORGANIZER' && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <a href="/organizer">
+                        <Users />
+                        <span>Organizer Dashboard</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {userItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
@@ -279,7 +290,7 @@ export function AppSidebar() {
                 ))}
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
-                    <button onClick={() => {/* Add logout logic */}}>
+                    <button onClick={signOut}>
                       <LogOut />
                       <span>Logout</span>
                     </button>

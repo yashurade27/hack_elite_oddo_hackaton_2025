@@ -98,7 +98,7 @@ export function useSession() {
             try { localStorage.removeItem('sessionId'); } catch(e) {}
             setSessionId(null);
           } else if (userData.user) {
-            console.log('useSession: User data received:', userData.user.email);
+            console.log('useSession: User data received:', userData.user.email, 'Role:', userData.user.role);
             setUser(userData.user);
           } else {
             console.warn('User data missing in API response');
