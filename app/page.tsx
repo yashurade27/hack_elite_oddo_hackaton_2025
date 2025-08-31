@@ -40,7 +40,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   
   // Dynamic configuration
-  const eventsPerPage = 12; // Increased for better UX
+  const eventsPerPage = 6; // Changed to 6 cards per page as requested
   
   // URL params with proper parsing and validation
   const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1'));

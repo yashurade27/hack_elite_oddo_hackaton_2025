@@ -64,6 +64,11 @@ const menuItems = [
     ],
   },
   {
+    title: "Registrations",
+    url: "/organizer/registrations",
+    icon: Users,
+  },
+  {
     title: "Analytics",
     url: "/organizer/analytics",
     icon: BarChart3,

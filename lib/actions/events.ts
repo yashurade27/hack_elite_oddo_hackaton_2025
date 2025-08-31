@@ -475,6 +475,194 @@ export async function getCategories() {
   }
 }
 
+// Get user's registered events
+export async function getUserRegisteredEvents(sessionId: string) {
+  try {
+    const user = await getCurrentUser(sessionId);
+    
+    if (!user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        userId: user.id
+      },
+      include: {
+        event: {
+          include: {
+            category: true,
+            organizer: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              }
+            },
+            ticketTypes: {
+              where: { isActive: true },
+              orderBy: { price: 'asc' }
+            },
+            _count: {
+              select: {
+                bookings: true,
+                reviews: true,
+              }
+            }
+          }
+        },
+        bookingItems: {
+          include: {
+            ticketType: true
+          }
+        }
+      },
+      orderBy: { bookingDate: 'desc' },
+    });
+
+    // Convert Decimal objects to numbers for client components
+    const serializedBookings = bookings.map((booking: any) => ({
+      ...booking,
+      totalAmount: Number(booking.totalAmount),
+      finalAmount: Number(booking.finalAmount),
+      discountAmount: Number(booking.discountAmount),
+      refundAmount: Number(booking.refundAmount),
+      event: {
+        ...booking.event,
+        latitude: booking.event.latitude ? Number(booking.event.latitude) : null,
+        longitude: booking.event.longitude ? Number(booking.event.longitude) : null,
+        ticketTypes: booking.event.ticketTypes.map((ticket: any) => ({
+          ...ticket,
+          price: Number(ticket.price)
+        }))
+      },
+      bookingItems: booking.bookingItems.map((item: any) => ({
+        ...item,
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice),
+        ticketType: {
+          ...item.ticketType,
+          price: Number(item.ticketType.price)
+        }
+      }))
+    }));
+
+    return { success: true, bookings: serializedBookings };
+  } catch (error) {
+    console.error("Get user registered events error:", error);
+    return { success: false, error: "Failed to retrieve registered events" };
+  }
+}
+
+// Get organizer's event registrations
+export async function getOrganizerEventRegistrations(sessionId: string, eventUuid?: string) {
+  try {
+    const user = await getCurrentUser(sessionId);
+    
+    if (!user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (user.userType !== "ORGANIZER") {
+      return { success: false, error: "Only organizers can access this" };
+    }
+
+    const whereCondition: any = {
+      event: {
+        organizerId: user.id
+      }
+    };
+
+    // If specific event is requested
+    if (eventUuid) {
+      whereCondition.event.uuid = eventUuid;
+    }
+
+    const registrations = await prisma.booking.findMany({
+      where: whereCondition,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          }
+        },
+        event: {
+          select: {
+            id: true,
+            uuid: true,
+            title: true,
+            startDatetime: true,
+            endDatetime: true,
+            venueName: true,
+            bannerImage: true,
+          }
+        },
+        bookingItems: {
+          include: {
+            ticketType: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                currency: true,
+              }
+            }
+          }
+        }
+      },
+      orderBy: { bookingDate: 'desc' },
+    });
+
+    // Convert Decimal objects to numbers and group by event
+    const serializedRegistrations = registrations.map((registration: any) => ({
+      ...registration,
+      totalAmount: Number(registration.totalAmount),
+      finalAmount: Number(registration.finalAmount),
+      discountAmount: Number(registration.discountAmount),
+      refundAmount: Number(registration.refundAmount),
+      bookingItems: registration.bookingItems.map((item: any) => ({
+        ...item,
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice),
+        ticketType: {
+          ...item.ticketType,
+          price: Number(item.ticketType.price)
+        }
+      }))
+    }));
+
+    // Group registrations by event for better organization
+    const eventGroups = serializedRegistrations.reduce((groups: any, registration) => {
+      const eventId = registration.event.uuid;
+      if (!groups[eventId]) {
+        groups[eventId] = {
+          event: registration.event,
+          registrations: [],
+          totalRegistrations: 0,
+          totalRevenue: 0
+        };
+      }
+      groups[eventId].registrations.push(registration);
+      groups[eventId].totalRegistrations += 1;
+      groups[eventId].totalRevenue += registration.finalAmount;
+      return groups;
+    }, {});
+
+    return { 
+      success: true, 
+      registrations: serializedRegistrations,
+      eventGroups: Object.values(eventGroups)
+    };
+  } catch (error) {
+    console.error("Get organizer event registrations error:", error);
+    return { success: false, error: "Failed to retrieve event registrations" };
+  }
+}
+
 // Publish/Unpublish event
 export async function toggleEventStatus(sessionId: string, eventUuid: string, status: "PUBLISHED" | "DRAFT") {
   try {
@@ -544,7 +732,7 @@ export async function toggleEventStatus(sessionId: string, eventUuid: string, st
       ...event,
       latitude: event.latitude ? Number(event.latitude) : null,
       longitude: event.longitude ? Number(event.longitude) : null,
-      ticketTypes: event.ticketTypes.map(ticket => ({
+      ticketTypes: event.ticketTypes.map((ticket: any) => ({
         ...ticket,
         price: Number(ticket.price)
       }))

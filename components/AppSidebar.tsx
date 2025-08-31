@@ -75,14 +75,14 @@ const mainItems = [
 // User-specific items
 const userItems = [
   {
+    title: "My Bookings",
+    url: "/user/bookings",
+    icon: CalendarCheck2,
+  },
+  {
     title: "My Tickets",
     url: "/tickets",
     icon: Ticket,
-  },
-  {
-    title: "Bookings",
-    url: "/bookings",
-    icon: CalendarCheck2,
   },
   {
     title: "Favorites",
