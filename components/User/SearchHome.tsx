@@ -1,3 +1,4 @@
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { Search, Calendar, MapPin } from 'lucide-react';
@@ -9,13 +10,13 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 interface SearchHomeProps {
   onSearch: (query: string) => void;
@@ -35,25 +36,24 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
   }, [searchQuery, onSearch]);
 
   const categories = [
-    { value: 'music', label: 'Music' },
-    { value: 'sports', label: 'Sports' },
-    { value: 'technology', label: 'Technology' },
-    { value: 'business', label: 'Business' },
-    { value: 'food', label: 'Food' },
-    { value: 'arts', label: 'Arts' },
+    { value: "music", label: "Music" },
+    { value: "sports", label: "Sports" },
+    { value: "technology", label: "Technology" },
+    { value: "business", label: "Business" },
+    { value: "food", label: "Food" },
+    { value: "arts", label: "Arts" },
   ];
 
   const locations = [
-    { value: 'chandigarh', label: 'Chandigarh' },
-    { value: 'patiala', label: 'Patiala' },
-    { value: 'ludhiana', label: 'Ludhiana' },
-    { value: 'amritsar', label: 'Amritsar' },
+    { value: "chandigarh", label: "Chandigarh" },
+    { value: "patiala", label: "Patiala" },
+    { value: "ludhiana", label: "Ludhiana" },
+    { value: "amritsar", label: "Amritsar" },
   ];
 
   const handleSearch = () => {
-    // Call the parent's onSearch function with the current search query
     onSearch(searchQuery);
-    
+
     console.log({
       query: searchQuery,
       category: selectedCategory,
@@ -63,26 +63,16 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
   };
 
   const formatDate = (date: number | Date | null | undefined) => {
-    if (!date) return 'Any Date';
-    return new Intl.DateTimeFormat('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+    if (!date) return "Any Date";
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     }).format(date);
   };
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4">
-      {/* Hero Section */}
-      {/* <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">
-          Discover Amazing Events
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          Find and book the perfect events happening around you
-        </p>
-      </div> */}
-
       {/* Search Bar */}
       <div className="bg-card border rounded-xl shadow-lg p-6">
         {/* Desktop View */}
@@ -105,8 +95,13 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
 
           {/* Category */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground font-medium">Category</label>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <label className="text-xs text-muted-foreground font-medium">
+              Category
+            </label>
+            <Select
+              value={selectedCategory}
+              onValueChange={setSelectedCategory}
+            >
               <SelectTrigger className="w-40 h-12">
                 <SelectValue placeholder="Any Category" />
               </SelectTrigger>
@@ -122,8 +117,13 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
 
           {/* Location */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground font-medium">Location</label>
-            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+            <label className="text-xs text-muted-foreground font-medium">
+              Location
+            </label>
+            <Select
+              value={selectedLocation}
+              onValueChange={setSelectedLocation}
+            >
               <SelectTrigger className="w-40 h-12">
                 <MapPin className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Any Location" />
@@ -140,7 +140,9 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
 
           {/* Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground font-medium">Date</label>
+            <label className="text-xs text-muted-foreground font-medium">
+              Date
+            </label>
             <Popover open={isDateOpen} onOpenChange={setIsDateOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-36 h-12 justify-start">
@@ -164,7 +166,11 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
           </div>
 
           {/* Search Button */}
-          <Button onClick={handleSearch} size="lg" className="px-8 h-12 bg-primary hover:bg-primary/90">
+          <Button
+            onClick={handleSearch}
+            size="lg"
+            className="px-8 h-12 bg-primary hover:bg-primary/90"
+          >
             <Search className="h-4 w-4 mr-2" />
             Search
           </Button>
@@ -172,7 +178,6 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
 
         {/* Mobile View */}
         <div className="md:hidden space-y-4">
-          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -188,10 +193,11 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
             />
           </div>
 
-          {/* Filters Row */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Category */}
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select
+              value={selectedCategory}
+              onValueChange={setSelectedCategory}
+            >
               <SelectTrigger className="h-11">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
@@ -204,8 +210,10 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
               </SelectContent>
             </Select>
 
-            {/* Location */}
-            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+            <Select
+              value={selectedLocation}
+              onValueChange={setSelectedLocation}
+            >
               <SelectTrigger className="h-11">
                 <MapPin className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Location" />
@@ -220,9 +228,7 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
             </Select>
           </div>
 
-          {/* Date and Search Row */}
           <div className="flex gap-3">
-            {/* Date */}
             <Popover open={isDateOpen} onOpenChange={setIsDateOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="flex-1 h-11 justify-start">
@@ -244,7 +250,6 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
               </PopoverContent>
             </Popover>
 
-            {/* Search Button */}
             <Button onClick={handleSearch} size="lg" className="px-6 h-11">
               <Search className="h-4 w-4 mr-2" />
               Search
@@ -252,14 +257,13 @@ const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) 
           </div>
         </div>
 
-        {/* Clear Filters */}
         {(searchQuery || selectedCategory || selectedLocation || startDate) && (
           <div className="mt-4 pt-4 border-t">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
-                setSearchQuery('');
+                setSearchQuery("");
                 setSelectedCategory(undefined);
                 setSelectedLocation(undefined);
                 setStartDate(null);
