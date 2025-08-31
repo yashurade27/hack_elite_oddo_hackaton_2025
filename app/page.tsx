@@ -1,100 +1,314 @@
-import { getEvents } from "@/app/actions/get-events";
-import SearchHome from "@/components/User/SearchHome";
-import PaginatedEvents from "@/components/PaginatedEvents";
+'use client';
 
-export default async function Home() {
-  // Get initial data on the server side
-  const initialData = await getEvents(1, 6);
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import SearchHome from '@/components/User/SearchHome';
+import PaginationHome from '@/components/User/PaginationHome';
+import CardEvent from '@/components/CardEvent';
+import { getPublicEvents, getCategories } from '@/lib/actions/events';
+import { Loader2, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+
+// Custom debounce function
+function useDebounce<T extends (...args: any[]) => any>(
+  func: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  return useCallback((...args: Parameters<T>) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      func(...args);
+    }, delay);
+  }, [func, delay]);
+}
+
+export default function HomePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // State
+  const [events, setEvents] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [totalEvents, setTotalEvents] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  
+  const eventsPerPage = 12;
+  
+  // URL params
+  const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1'));
+  const searchQuery = searchParams.get('search')?.trim() || '';
+  const selectedCategory = searchParams.get('category') ? 
+    parseInt(searchParams.get('category')!) : null;
+
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const result = await getCategories();
+        if (result.success && result.categories) {
+          setCategories(result.categories);
+        } else {
+          setCategories([]);
+        }
+      } catch {
+        setCategories([]);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Fetch events
+  const fetchEvents = useCallback(async (search: string, categoryId: number | null, page: number) => {
+    setSearchLoading(true);
+    setError(null);
+    
+    try {
+      const result = await getPublicEvents({
+        search: search || undefined,
+        categoryId: categoryId || undefined,
+        limit: eventsPerPage,
+        offset: (page - 1) * eventsPerPage,
+      });
+      
+      if (result.success && result.events) {
+        setEvents(result.events);
+
+        if (result.events.length < eventsPerPage) {
+          setTotalEvents((page - 1) * eventsPerPage + result.events.length);
+        } else {
+          const countResult = await getPublicEvents({
+            search: search || undefined,
+            categoryId: categoryId || undefined,
+            limit: 1,
+            offset: page * eventsPerPage,
+          });
+          const hasMore = countResult.success && countResult.events && countResult.events.length > 0;
+          setTotalEvents(hasMore ? (page * eventsPerPage) + 1 : page * eventsPerPage);
+        }
+      } else {
+        setError(result.error || 'Failed to fetch events');
+        setEvents([]);
+        setTotalEvents(0);
+      }
+    } catch {
+      setError('Failed to fetch events. Please try again.');
+      setEvents([]);
+      setTotalEvents(0);
+    } finally {
+      setSearchLoading(false);
+      setLoading(false);
+    }
+  }, [eventsPerPage]);
+
+  const debouncedFetchEvents = useDebounce(fetchEvents, 300);
+
+  useEffect(() => {
+    debouncedFetchEvents(searchQuery, selectedCategory, currentPage);
+  }, [searchQuery, selectedCategory, currentPage]);
+
+  const updateURL = useCallback((params: { search?: string; category?: number | null; page?: number }) => {
+    const newParams = new URLSearchParams(searchParams.toString());
+    
+    if (params.search !== undefined) {
+      const trimmedSearch = params.search.trim();
+      if (trimmedSearch && trimmedSearch.length >= 2) {
+        newParams.set('search', trimmedSearch);
+      } else {
+        newParams.delete('search');
+      }
+    }
+    
+    if (params.category !== undefined) {
+      if (params.category && categories.some(cat => cat.id === params.category)) {
+        newParams.set('category', params.category.toString());
+      } else {
+        newParams.delete('category');
+      }
+    }
+    
+    if (params.page !== undefined) {
+      const validPage = Math.max(1, params.page);
+      if (validPage > 1) {
+        newParams.set('page', validPage.toString());
+      } else {
+        newParams.delete('page');
+      }
+    }
+    
+    const newURL = `/?${newParams.toString()}`;
+    router.push(newURL, { scroll: false });
+  }, [searchParams, router, categories]);
+
+  const handleSearch = useCallback((query: string) => {
+    updateURL({ search: query.trim(), page: 1 });
+  }, [updateURL]);
+
+  const handleCategoryFilter = useCallback((categoryId: number | null) => {
+    if (categoryId && !categories.some(cat => cat.id === categoryId)) return;
+    updateURL({ category: categoryId, page: 1 });
+  }, [updateURL, categories]);
+
+  const handlePageChange = useCallback((page: number) => {
+    const currentTotalPages = Math.ceil(totalEvents / eventsPerPage);
+    const validPage = Math.max(1, Math.min(page, currentTotalPages));
+    updateURL({ page: validPage });
+  }, [updateURL, totalEvents, eventsPerPage]);
+
+  const handleBookTicket = useCallback((eventId: string) => {
+    router.push(`/events/${eventId}/register`);
+  }, [router]);
+
+  const handleViewDetails = useCallback((eventId: string) => {
+    router.push(`/events/${eventId}`);
+  }, [router]);
+
+  const formatDate = useCallback((dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'Asia/Kolkata'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  }, []);
+
+  const formatTime = useCallback((dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata'
+      });
+    } catch {
+      return 'Invalid Time';
+    }
+  }, []);
+
+  const formatPrice = useCallback((price: number, currency: string = 'INR') => {
+    if (price === 0) return 'Free';
+    try {
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(price);
+    } catch {
+      return `${currency} ${price}`;
+    }
+  }, []);
+
+  const totalPages = Math.ceil(totalEvents / eventsPerPage);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Search Section */}
-      <div className="w-full px-6 py-8">
-        <SearchHome />
-      </div>
+    <div className="min-h-screen bg-background">      
+      <main className="container mx-auto px-4 py-8">
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            Discover Amazing Events
+          </h1>
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Find and attend the best events in your city. From concerts to conferences, we have it all.
+          </p>
+        </div>
 
-      {/* Paginated Events Component */}
-      <PaginatedEvents initialData={initialData} />
-
-      {/* Footer Section */}
-      <footer className="flex justify-center">
-        <div className="flex max-w-[960px] flex-1 flex-col">
-          <div className="flex flex-col gap-6 px-5 py-10 text-center @container">
-            <div className="flex flex-wrap items-center justify-center gap-6 @[480px]:flex-row @[480px]:justify-around">
-              <a
-                className="text-[#4e7297] text-base font-normal min-w-40 hover:text-[#363673] transition-colors"
-                href="#"
+        {/* Search and Filters */}
+        <div className="mb-8 space-y-6">
+          <SearchHome onSearch={handleSearch} initialValue={searchQuery} />
+          
+          {/* Category Filters */}
+          <div className="flex flex-wrap gap-2 justify-center">
+            <Badge 
+              variant={selectedCategory === null ? "default" : "outline"}
+              className="cursor-pointer px-4 py-2"
+              onClick={() => handleCategoryFilter(null)}
+            >
+              All Categories
+            </Badge>
+            {categories.map(category => (
+              <Badge
+                key={category.id}
+                variant={selectedCategory === category.id ? "default" : "outline"}
+                className="cursor-pointer px-4 py-2"
+                style={{ 
+                  backgroundColor: selectedCategory === category.id && category.colorCode ? category.colorCode : undefined,
+                  borderColor: category.colorCode || undefined
+                }}
+                onClick={() => handleCategoryFilter(category.id)}
               >
-                Terms of Service
-              </a>
-              <a
-                className="text-[#4e7297] text-base font-normal min-w-40 hover:text-[#363673] transition-colors"
-                href="#"
-              >
-                Privacy Policy
-              </a>
-              <a
-                className="text-[#4e7297] text-base font-normal min-w-40 hover:text-[#363673] transition-colors"
-                href="#"
-              >
-                Contact Us
-              </a>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-6">
-              <a
-                href="#"
-                className="text-[#4e7297] hover:text-[#363673] transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="28"
-                  height="28"
-                  fill="currentColor"
-                  viewBox="0 0 256 256"
-                >
-                  <path d="M247.39,68.94A8,8,0,0,0,240,64H209.57A48.66,48.66,0,0,0,168.1,40a46.91,46.91,0,0,0-33.75,13.7A47.9,47.9,0,0,0,120,88v6.09C79.74,83.47,46.81,50.72,46.46,50.37a8,8,0,0,0-13.65,4.92c-4.31,47.79,9.57,79.77,22,98.18a110.93,110.93,0,0,0,21.88,24.2c-15.23,17.53-39.21,26.74-39.47,26.84a8,8,0,0,0-3.85,11.93c.75,1.12,3.75,5.05,11.08,8.72C53.51,229.7,65.48,232,80,232c70.67,0,129.72-54.42,135.75-124.44l29.91-29.9A8,8,0,0,0,247.39,68.94Z" />
-                </svg>
-              </a>
-
-              <a
-                href="#"
-                className="text-[#4e7297] hover:text-[#363673] transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="28"
-                  height="28"
-                  fill="currentColor"
-                  viewBox="0 0 256 256"
-                >
-                  <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm8,191.63V152h24a8,8,0,0,0,0-16H136V112a16,16,0,0,1,16-16h16a8,8,0,0,0,0-16H152a32,32,0,0,0-32,32v24H96a8,8,0,0,0,0,16h24v63.63a88,88,0,1,1,16,0Z" />
-                </svg>
-              </a>
-
-              <a
-                href="#"
-                className="text-[#4e7297] hover:text-[#363673] transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="28"
-                  height="28"
-                  fill="currentColor"
-                  viewBox="0 0 256 256"
-                >
-                  <path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160ZM176,24H80A56.06,56.06,0,0,0,24,80v96a56.06,56.06,0,0,0,56,56h96a56.06,56.06,0,0,0,56-56V80A56.06,56.06,0,0,0,176,24Zm40,152a40,40,0,0,1-40,40H80a40,40,0,0,1-40-40V80A40,40,0,0,1,80,40h96a40,40,0,0,1,40,40ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z" />
-                </svg>
-              </a>
-            </div>
-
-            <p className="text-[#4e7297] text-sm font-normal leading-normal">
-              © {new Date().getFullYear()} Neighborhood Watch. All rights
-              reserved.
-            </p>
+                {category.icon && <span className="mr-1">{category.icon}</span>}
+                {category.name}
+              </Badge>
+            ))}
           </div>
         </div>
-      </footer>
+
+        {/* Events Grid */}
+        {!loading && !error && events.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {events.map((event) => {
+              const startPrice = event.ticketTypes?.length > 0 
+                ? Math.min(...event.ticketTypes.map((t: any) => t.price))
+                : 0;
+              
+              const availableTickets = event.ticketTypes?.reduce(
+                (sum: number, ticket: any) => sum + ticket.remainingQuantity, 0
+              ) || 0;
+
+              const eventStatus = new Date(event.startDatetime) < new Date() ? 'past' : 
+                                availableTickets === 0 ? 'sold-out' : 'available';
+
+              return (
+                <CardEvent
+                  key={event.uuid}
+                  event={{
+                    ...event,
+                    id: event.uuid,
+                    date: formatDate(event.startDatetime),
+                    time: formatTime(event.startDatetime),
+                    location: event.venueName,
+                    price: startPrice,
+                    currency: event.ticketTypes?.[0]?.currency || 'INR',
+                    formattedPrice: formatPrice(startPrice, event.ticketTypes?.[0]?.currency),
+                    attendees: event._count?.bookings || 0,
+                    organizerName: `${event.organizer.firstName} ${event.organizer.lastName}`,
+                    image: event.bannerImage || `https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop&crop=center`,
+                    category: event.category.name,
+                    categoryColor: event.category.colorCode,
+                    isFeatured: event.isFeatured,
+                    isTrending: event.isTrending,
+                    status: eventStatus,
+                    availableTickets,
+                  }}
+                  onBookTicket={(eventUuid: string) => handleBookTicket(eventUuid)}
+                  onViewDetails={(eventUuid: string) => handleViewDetails(eventUuid)}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && !error && totalPages > 1 && (
+          <PaginationHome
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        )}
+      </main>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import SidebarWrapper from "@/components/SidebarWrapper";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "@/components/ui/sonner";
+import MainLayoutContent from "@/components/MainLayoutContent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +29,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const defaultOpen = true;
-
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -42,17 +41,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SessionProvider>
-            <SidebarProvider defaultOpen={defaultOpen}>
-              <SidebarWrapper />
-              <main className="w-full">
-                <Navbar />
-                <div className="px-4">{children}</div>
-              </main>
-              <Toaster />
-            </SidebarProvider>
+            <MainLayoutContent>
+              {children}
+            </MainLayoutContent>
+            <Toaster />
           </SessionProvider>
         </ThemeProvider>
-
       </body>
     </html>
   );

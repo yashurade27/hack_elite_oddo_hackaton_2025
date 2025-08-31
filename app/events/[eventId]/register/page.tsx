@@ -16,7 +16,8 @@ import {
   Minus,
   CheckCircle,
   AlertCircle,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,11 +28,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  sampleEventData, 
-  sampleMusicEvent, 
-  sampleSportsEvent 
-} from '@/components/SampleEventData';
+import { getEventByUuid } from '@/lib/actions/events';
 
 // Utility functions
 const formatNumber = (num: number) => {
@@ -79,27 +76,42 @@ export default function EventRegistrationPage() {
   const router = useRouter();
   const eventId = params?.eventId as string;
 
-  // Get event data
-  const getEventData = () => {
-    switch(eventId) {
-      case '1':
-        return sampleEventData;
-      case '2':
-        return sampleMusicEvent;
-      case '3':
-        return sampleSportsEvent;
-      default:
-        return sampleEventData;
-    }
-  };
-
-  const event = getEventData();
+  // State for dynamic data
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [ticketSelections, setTicketSelections] = useState<TicketSelection>({});
   const [attendeesInfo, setAttendeesInfo] = useState<AttendeeInfo[]>([]);
   const [currentStep, setCurrentStep] = useState(1); // 1: Ticket Selection, 2: Attendee Info, 3: Payment
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
+  // Fetch event data
+  useEffect(() => {
+    const fetchEvent = async () => {
+      if (!eventId) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await getEventByUuid(eventId);
+        
+        if (result.success && result.event) {
+          setEvent(result.event);
+        } else {
+          setError(result.error || 'Event not found');
+        }
+      } catch (err) {
+        console.error('Error fetching event:', err);
+        setError('Failed to load event. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvent();
+  }, [eventId]);
 
   // Get current user on component mount
   useEffect(() => {
@@ -144,7 +156,7 @@ export default function EventRegistrationPage() {
     if (pendingRegistration && currentUserId) {
       try {
         const data = JSON.parse(pendingRegistration);
-        if (data.eventId === eventId) {
+        if (data.eventId === event?.uuid) {
           setTicketSelections(data.ticketSelections || {});
           setAttendeesInfo(data.attendeesInfo || []);
           setCurrentStep(data.currentStep || 1);
@@ -171,17 +183,19 @@ export default function EventRegistrationPage() {
 
   const getTotalPrice = () => {
     return Object.entries(ticketSelections).reduce((total, [ticketId, quantity]) => {
-      const ticket = event.ticketTypes?.find(t => t.id === parseInt(ticketId));
+      const ticket = event.ticketTypes?.find((t: any) => t.id === parseInt(ticketId));
       return total + (ticket ? ticket.price * quantity : 0);
     }, 0);
   };
 
   // Initialize attendees info when ticket selection changes
   useEffect(() => {
+    if (!event?.ticketTypes) return;
+    
     const newAttendees: AttendeeInfo[] = [];
     
     Object.entries(ticketSelections).forEach(([ticketId, quantity]) => {
-      const ticket = event.ticketTypes?.find(t => t.id === parseInt(ticketId));
+      const ticket = event.ticketTypes?.find((t: any) => t.id === parseInt(ticketId));
       if (ticket && quantity > 0) {
         for (let i = 0; i < quantity; i++) {
           newAttendees.push({
@@ -198,7 +212,7 @@ export default function EventRegistrationPage() {
     });
     
     setAttendeesInfo(newAttendees);
-  }, [ticketSelections, event.ticketTypes]);
+  }, [ticketSelections, event?.ticketTypes]);
 
   const updateAttendeeInfo = (id: string, field: keyof AttendeeInfo, value: string) => {
     setAttendeesInfo(prev => 
@@ -233,7 +247,7 @@ export default function EventRegistrationPage() {
       const shouldLogin = confirm('You need to be logged in to make a payment. Would you like to go to the login page?');
       if (shouldLogin) {
         localStorage.setItem('pendingRegistration', JSON.stringify({
-          eventId,
+          eventId: event.uuid, // Use the actual event UUID
           ticketSelections,
           attendeesInfo,
           currentStep,
@@ -247,16 +261,33 @@ export default function EventRegistrationPage() {
     setIsProcessingPayment(true);
 
     try {
+      // Diagnostic checks
+      console.log('=== Payment Diagnostic Info ===');
+      console.log('Event ID from URL:', eventId);
+      console.log('Event data loaded:', event);
+      console.log('Current User ID:', currentUserId);
+      console.log('Ticket selections:', ticketSelections);
+      console.log('Attendees info:', attendeesInfo);
+      console.log('Total price:', getTotalPrice());
+
+      // Check if event data is loaded
+      if (!event) {
+        throw new Error('Event data not loaded');
+      }
+
       // Prepare ticket details for API
       const ticketDetails = Object.entries(ticketSelections)
         .filter(([_, quantity]) => quantity > 0)
         .map(([ticketId, quantity]) => {
-          const ticket = event.ticketTypes?.find(t => t.id === parseInt(ticketId));
+          const ticket = event.ticketTypes?.find((t: any) => t.id === parseInt(ticketId));
+          if (!ticket) {
+            throw new Error(`Ticket type not found: ${ticketId}`);
+          }
           return {
             ticketTypeId: parseInt(ticketId),
             quantity,
-            price: ticket?.price || 0,
-            name: ticket?.name || '',
+            price: ticket.price || 0,
+            name: ticket.name || '',
           };
         });
 
@@ -269,7 +300,7 @@ export default function EventRegistrationPage() {
         body: JSON.stringify({
           amount: getTotalPrice(),
           currency: 'INR',
-          eventId: parseInt(eventId),
+          eventId: event.id, // Use the actual database ID from the loaded event
           userId: currentUserId,
           attendeeInfo: {
             name: `${attendeesInfo[0]?.firstName} ${attendeesInfo[0]?.lastName}`,
@@ -281,9 +312,11 @@ export default function EventRegistrationPage() {
       });
 
       const orderData = await orderResponse.json();
+      console.log('Order creation response:', orderData);
 
-      if (!orderData.success) {
-        throw new Error(orderData.error || 'Failed to create order');
+      if (!orderResponse.ok || !orderData.success) {
+        console.error('Order creation failed:', orderData);
+        throw new Error(orderData.error || `Failed to create order: ${orderResponse.status}`);
       }
 
       // Simple Razorpay config that works with test mode
@@ -306,7 +339,7 @@ export default function EventRegistrationPage() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                eventId: parseInt(eventId),
+                eventId: event.id, // Use the actual database ID from the loaded event
                 userId: currentUserId,
                 attendeeInfo: {
                   name: `${attendeesInfo[0]?.firstName} ${attendeesInfo[0]?.lastName}`,
@@ -367,6 +400,14 @@ export default function EventRegistrationPage() {
 
     } catch (error) {
       console.error('Payment error:', error);
+      console.error('Event data:', event);
+      console.error('Ticket selections:', ticketSelections);
+      console.error('Current user ID:', currentUserId);
+      
+      // Show the actual error message to user
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Payment setup failed: ${errorMessage}`);
+      
       // For demo purposes - if payment fails, simulate success anyway
       if (confirm('Payment setup failed. Simulate successful payment for demo?')) {
         const simulatedBookingId = `DEMO-${Date.now()}`;
@@ -389,8 +430,8 @@ export default function EventRegistrationPage() {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {event.ticketTypes?.filter(ticket => ticket.isActive && ticket.remainingQuantity > 0)
-          .map((ticket) => (
+        {event.ticketTypes?.filter((ticket: any) => ticket.isActive && ticket.remainingQuantity > 0)
+          .map((ticket: any) => (
             <div key={ticket.id} className="border rounded-lg p-4">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
@@ -615,7 +656,7 @@ export default function EventRegistrationPage() {
           <h3 className="font-semibold mb-3">Order Summary</h3>
           <div className="space-y-2">
             {Object.entries(ticketSelections).map(([ticketId, quantity]) => {
-              const ticket = event.ticketTypes?.find(t => t.id === parseInt(ticketId));
+              const ticket = event.ticketTypes?.find((t: any) => t.id === parseInt(ticketId));
               if (!ticket || quantity === 0) return null;
               
               return (
@@ -671,6 +712,39 @@ export default function EventRegistrationPage() {
       </CardContent>
     </Card>
   );
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading event registration...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Event Not Available</h2>
+          <p className="text-muted-foreground mb-6">{error || 'This event registration is not available.'}</p>
+          <div className="space-x-4">
+            <Button onClick={() => router.back()} variant="outline">
+              Go Back
+            </Button>
+            <Button onClick={() => router.push('/')}>
+              Browse Events
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

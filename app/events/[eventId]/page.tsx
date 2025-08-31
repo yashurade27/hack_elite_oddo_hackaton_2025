@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { 
@@ -14,17 +14,15 @@ import {
   Heart,
   Star,
   ChevronLeft,
-  CreditCard
+  CreditCard,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { 
-  sampleEventData, 
-  sampleMusicEvent, 
-  sampleSportsEvent 
-} from '@/components/SampleEventData';
+import { getEventByUuid } from '@/lib/actions/events';
 
 // Utility functions
 const formatNumber = (num: number) => {
@@ -71,24 +69,73 @@ export default function EventDetailsPage() {
   const router = useRouter();
   const eventId = params?.eventId as string;
   
-  // Mock data selection based on eventId
-  const getEventData = () => {
-    switch(eventId) {
-      case '1':
-        return sampleEventData;
-      case '2':
-        return sampleMusicEvent;
-      case '3':
-        return sampleSportsEvent;
-      default:
-        return sampleEventData;
-    }
-  };
-
-  const event = getEventData();
+  // State for dynamic data
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [ticketSelections, setTicketSelections] = useState<TicketSelection>({});
   const [isLiked, setIsLiked] = useState(false);
 
+  // Fetch event data
+  useEffect(() => {
+    const fetchEvent = async () => {
+      if (!eventId) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await getEventByUuid(eventId);
+        
+        if (result.success && result.event) {
+          setEvent(result.event);
+        } else {
+          setError(result.error || 'Event not found');
+        }
+      } catch (err) {
+        console.error('Error fetching event:', err);
+        setError('Failed to load event. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvent();
+  }, [eventId]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading event details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Event Not Found</h2>
+          <p className="text-muted-foreground mb-6">{error || 'This event could not be found.'}</p>
+          <div className="space-x-4">
+            <Button onClick={() => router.back()} variant="outline">
+              Go Back
+            </Button>
+            <Button onClick={() => router.push('/')}>
+              Browse Events
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Utility functions (moved after null checks)
   const updateTicketQuantity = (ticketId: number, quantity: number, maxPerUser: number) => {
     setTicketSelections(prev => ({
       ...prev,
@@ -102,19 +149,53 @@ export default function EventDetailsPage() {
 
   const getTotalPrice = () => {
     return Object.entries(ticketSelections).reduce((total, [ticketId, quantity]) => {
-      const ticket = event.ticketTypes?.find(t => t.id === parseInt(ticketId));
+      const ticket = event?.ticketTypes?.find((t: any) => t.id === parseInt(ticketId));
       return total + (ticket ? ticket.price * quantity : 0);
     }, 0);
   };
 
   const getAvailableTickets = () => {
-    return event.ticketTypes?.reduce((total, ticket) => 
+    if (!event?.ticketTypes) return 0;
+    return event.ticketTypes.reduce((total: number, ticket: any) => 
       ticket.isActive ? total + ticket.remainingQuantity : total, 0
-    ) || 0;
+    );
   };
 
   const isEventSoldOut = getAvailableTickets() === 0;
   const isEventUpcoming = new Date(event.startDatetime) > new Date();
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading event details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Event Not Found</h2>
+          <p className="text-muted-foreground mb-6">{error || 'This event could not be found.'}</p>
+          <div className="space-x-4">
+            <Button onClick={() => router.back()} variant="outline">
+              Go Back
+            </Button>
+            <Button onClick={() => router.push('/')}>
+              Browse Events
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -335,17 +416,17 @@ export default function EventDetailsPage() {
                   {!isEventSoldOut && isEventUpcoming && event.status === 'PUBLISHED' && (
                     <div className="space-y-2 pt-4 border-t">
                       <h4 className="font-medium text-sm">Available Tickets:</h4>
-                      {event.ticketTypes?.filter(ticket => ticket.isActive && ticket.remainingQuantity > 0)
+                      {event.ticketTypes?.filter((ticket: any) => ticket.isActive && ticket.remainingQuantity > 0)
                         .slice(0, 3)
-                        .map((ticket) => (
+                        .map((ticket: any) => (
                           <div key={ticket.id} className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">{ticket.name}</span>
                             <span className="font-medium">{formatPrice(ticket.price, ticket.currency)}</span>
                           </div>
                         ))}
-                      {(event.ticketTypes?.filter(ticket => ticket.isActive && ticket.remainingQuantity > 0).length || 0) > 3 && (
+                      {(event.ticketTypes?.filter((ticket: any) => ticket.isActive && ticket.remainingQuantity > 0).length || 0) > 3 && (
                         <p className="text-xs text-muted-foreground text-center pt-1">
-                          +{(event.ticketTypes?.filter(ticket => ticket.isActive && ticket.remainingQuantity > 0).length || 0) - 3} more ticket types
+                          +{(event.ticketTypes?.filter((ticket: any) => ticket.isActive && ticket.remainingQuantity > 0).length || 0) - 3} more ticket types
                         </p>
                       )}
                     </div>
@@ -401,23 +482,17 @@ export default function EventDetailsPage() {
                     {/* Organizer Info */}
                     <div className="flex-1">
                       <h4 className="font-semibold text-foreground mb-1">
-                        {event.category.name === 'Technology' ? 'TechCrunch Events' :
-                         event.category.name === 'Music' ? 'Sunburn Entertainment' :
-                         event.category.name === 'Sports' ? 'BCCI Events' :
-                         'EventHive Organizers'}
+                        {event.organizer.firstName} {event.organizer.lastName}
                       </h4>
                       <p className="text-sm text-muted-foreground mb-2">
-                        {event.category.name === 'Technology' ? 'Leading technology event organizer with 10+ years of experience in startup conferences.' :
-                         event.category.name === 'Music' ? 'Premier electronic music event company organizing world-class concerts and festivals.' :
-                         event.category.name === 'Sports' ? 'Official cricket event management bringing you the best sporting experiences.' :
-                         'Professional event management company.'}
+                        {event.category.name} event organizer with expertise in creating memorable experiences.
                       </p>
                       
                       {/* Organizer Stats */}
                       <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span>50+ Events</span>
-                        <span>100K+ Attendees</span>
-                        <span>4.8★ Rating</span>
+                        <span>Verified Organizer</span>
+                        <span>{event._count?.bookings || 0} Bookings</span>
+                        <span>{event._count?.reviews || 0} Reviews</span>
                       </div>
                     </div>
                   </div>

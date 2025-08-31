@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { Search, Calendar, MapPin } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from 'react';
+import { Search, Calendar, MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -18,16 +18,22 @@ import {
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
-const SearchHome = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(
-    undefined
-  );
-  const [selectedLocation, setSelectedLocation] = useState<string | undefined>(
-    undefined
-  );
+interface SearchHomeProps {
+  onSearch: (query: string) => void;
+  initialValue?: string;
+}
+
+const SearchHome: React.FC<SearchHomeProps> = ({ onSearch, initialValue = '' }) => {
+  const [searchQuery, setSearchQuery] = useState(initialValue);
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [selectedLocation, setSelectedLocation] = useState<string | undefined>(undefined);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [isDateOpen, setIsDateOpen] = useState(false);
+
+  // Call onSearch when searchQuery changes (real-time search)
+  useEffect(() => {
+    onSearch(searchQuery);
+  }, [searchQuery, onSearch]);
 
   const categories = [
     { value: "music", label: "Music" },
@@ -46,6 +52,8 @@ const SearchHome = () => {
   ];
 
   const handleSearch = () => {
+    onSearch(searchQuery);
+
     console.log({
       query: searchQuery,
       category: selectedCategory,
@@ -65,16 +73,6 @@ const SearchHome = () => {
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4">
-      {/* Hero Section */}
-      {/* <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">
-          Discover Amazing Events
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          Find and book the perfect events happening around you
-        </p>
-      </div> */}
-
       {/* Search Bar */}
       <div className="bg-card border rounded-xl shadow-lg p-6">
         {/* Desktop View */}
@@ -87,7 +85,11 @@ const SearchHome = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-12 text-base"
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
             />
           </div>
 
@@ -176,7 +178,6 @@ const SearchHome = () => {
 
         {/* Mobile View */}
         <div className="md:hidden space-y-4">
-          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -184,13 +185,15 @@ const SearchHome = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-12 text-base"
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
             />
           </div>
 
-          {/* Filters Row */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Category */}
             <Select
               value={selectedCategory}
               onValueChange={setSelectedCategory}
@@ -207,7 +210,6 @@ const SearchHome = () => {
               </SelectContent>
             </Select>
 
-            {/* Location */}
             <Select
               value={selectedLocation}
               onValueChange={setSelectedLocation}
@@ -226,9 +228,7 @@ const SearchHome = () => {
             </Select>
           </div>
 
-          {/* Date and Search Row */}
           <div className="flex gap-3">
-            {/* Date */}
             <Popover open={isDateOpen} onOpenChange={setIsDateOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="flex-1 h-11 justify-start">
@@ -250,7 +250,6 @@ const SearchHome = () => {
               </PopoverContent>
             </Popover>
 
-            {/* Search Button */}
             <Button onClick={handleSearch} size="lg" className="px-6 h-11">
               <Search className="h-4 w-4 mr-2" />
               Search
@@ -258,7 +257,6 @@ const SearchHome = () => {
           </div>
         </div>
 
-        {/* Clear Filters */}
         {(searchQuery || selectedCategory || selectedLocation || startDate) && (
           <div className="mt-4 pt-4 border-t">
             <Button
